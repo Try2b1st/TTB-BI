@@ -21,6 +21,11 @@ public class Chart implements Serializable {
     private Long id;
 
     /**
+     * 图标名称
+     */
+    private String name;
+
+    /**
      * 分析目标
      */
     @TableField(value = "goal")

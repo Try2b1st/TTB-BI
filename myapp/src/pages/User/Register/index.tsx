@@ -1,5 +1,5 @@
 import Footer from '@/components/Footer';
-import { getLoginUserUsingGET, userLoginUsingPOST } from '@/services/ttb-bi/userController';
+import {getLoginUserUsingGET, userLoginUsingPOST, userRegisterUsingPOST} from '@/services/ttb-bi/userController';
 import { LockOutlined, UserOutlined } from '@ant-design/icons';
 import { LoginForm, ProFormText } from '@ant-design/pro-components';
 import { useEmotionCss } from '@ant-design/use-emotion-css';
@@ -39,11 +39,11 @@ const Login: React.FC = () => {
   const handleSubmit = async (values: API.UserLoginRequest) => {
     try {
       // 登录
-      const msg = await userLoginUsingPOST(values);
+      const msg = await userRegisterUsingPOST(values);
       if (msg.code === 0) {
-        const defaultLoginSuccessMessage = '登录成功！';
+        const defaultLoginSuccessMessage = '注册成功！';
         message.success(defaultLoginSuccessMessage);
-        await fetchUserInfo();
+        // await fetchUserInfo();
         const urlParams = new URL(window.location.href).searchParams;
         history.push(urlParams.get('redirect') || '/');
         return;
@@ -51,7 +51,7 @@ const Login: React.FC = () => {
         message.error(msg.message);
       }
     } catch (error) {
-      const defaultLoginFailureMessage = '登录失败，请重试！';
+      const defaultLoginFailureMessage = '注册失败，请重试！';
       console.log(error);
       message.error(defaultLoginFailureMessage);
     }
@@ -61,7 +61,7 @@ const Login: React.FC = () => {
     <div className={containerClassName}>
       <Helmet>
         <title>
-          {'登录'}- {Settings.title}
+          {'注册'}- {Settings.title}
         </title>
       </Helmet>
       <div
@@ -71,6 +71,13 @@ const Login: React.FC = () => {
         }}
       >
         <LoginForm
+
+          submitter={{
+            searchConfig:{
+              submitText:'注册',
+            }
+          }}
+
           contentStyle={{
             minWidth: 280,
             maxWidth: '75vw',
@@ -79,7 +86,7 @@ const Login: React.FC = () => {
           title="TTB智能 BI"
           subTitle={'TTB智能 BI 是一个优秀的智能BI项目'}
           onFinish={async (values) => {
-            await handleSubmit(values as API.UserLoginRequest);
+            await handleSubmit(values as API.UserRegisterRequest);
           }}
         >
           <Tabs
@@ -89,7 +96,7 @@ const Login: React.FC = () => {
             items={[
               {
                 key: 'account',
-                label: '账户密码登录',
+                label: '账户密码注册',
               },
             ]}
           />
@@ -124,16 +131,24 @@ const Login: React.FC = () => {
                   },
                 ]}
               />
+
+              <ProFormText.Password
+                name="checkPassword"
+                fieldProps={{
+                  size: 'large',
+                  prefix: <LockOutlined />,
+                }}
+                placeholder={'请再次输入密码'}
+                rules={[
+                  {
+                    required: true,
+                    message: '密码是必填项！',
+                  },
+                ]}
+              />
             </>
           )}
 
-          <div
-            style={{
-              marginBottom: 24,
-            }}
-          >
-            <Link to="/user/register">注册</Link>
-          </div>
         </LoginForm>
       </div>
       <Footer />

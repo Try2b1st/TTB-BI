@@ -9,26 +9,30 @@ import com.yupi.springbootinit.common.DeleteRequest;
 import com.yupi.springbootinit.common.ErrorCode;
 import com.yupi.springbootinit.common.ResultUtils;
 import com.yupi.springbootinit.constant.CommonConstant;
+import com.yupi.springbootinit.constant.FileConstant;
 import com.yupi.springbootinit.constant.UserConstant;
 import com.yupi.springbootinit.exception.BusinessException;
 import com.yupi.springbootinit.exception.ThrowUtils;
-import com.yupi.springbootinit.model.dto.chart.ChartAddRequest;
-import com.yupi.springbootinit.model.dto.chart.ChartEditRequest;
-import com.yupi.springbootinit.model.dto.chart.ChartQueryRequest;
-import com.yupi.springbootinit.model.dto.chart.ChartUpdateRequest;
+import com.yupi.springbootinit.model.dto.chart.*;
+import com.yupi.springbootinit.model.dto.file.UploadFileRequest;
 import com.yupi.springbootinit.model.entity.Chart;
 import com.yupi.springbootinit.model.entity.User;
+import com.yupi.springbootinit.model.enums.FileUploadBizEnum;
 import com.yupi.springbootinit.service.ChartService;
 import com.yupi.springbootinit.service.UserService;
+import com.yupi.springbootinit.utils.ExcelUtils;
 import com.yupi.springbootinit.utils.SqlUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ObjectUtils;
+import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.io.File;
 
 /**
  * 帖子接口
@@ -211,6 +215,63 @@ public class ChartController {
         return ResultUtils.success(result);
     }
 
+    /**
+     * 智能分析
+     *
+     * @param multipartFile
+     * @param genChartByAiRequest
+     * @param request
+     * @return
+     */
+    @PostMapping("/gen")
+    public BaseResponse<String> genChartByAi(@RequestPart("file") MultipartFile multipartFile,
+                                             GenChartByAiRequest genChartByAiRequest, HttpServletRequest request) {
+        String name = genChartByAiRequest.getName();
+        String goal = genChartByAiRequest.getGoal();
+        String chartType = genChartByAiRequest.getChartType();
+        User loginUser = userService.getLoginUser(request);
+
+
+        //校验数据
+        ThrowUtils.throwIf(StringUtils.isBlank(goal), ErrorCode.PARAMS_ERROR, "分析目标不能为空");
+        ThrowUtils.throwIf(StringUtils.isBlank(name), ErrorCode.PARAMS_ERROR, "图标名字不能为空");
+        ThrowUtils.throwIf(name.length() > 100, ErrorCode.PARAMS_ERROR, "图标名称过长");
+        ThrowUtils.throwIf(StringUtils.isBlank(goal), ErrorCode.PARAMS_ERROR, "分析目标不能为空");
+        ThrowUtils.throwIf(StringUtils.isBlank(chartType), ErrorCode.PARAMS_ERROR, "请选择图表类型");
+
+        StringBuilder stringBuilder = new StringBuilder();
+        stringBuilder.append("你是一个数据分析师，深入探索数据集以寻找洞见，可以熟练的从海量的数字和模式中汲取信息。你能精" +
+                "心分析趋势、相关性和异常值，揭示有价值的信息。借助先进的工具和算法，能够将复杂的数据可视化，以易于理解的方式" +
+                "呈现。你对细节有着敏锐的洞察力，并深刻理解统计技术，将原始数据转化为有助于决策的见解。你的工作以认真、准确和对解读" +
+                "数字背后故事的热情为特点。我会给你分析目标和原始数据，请告诉我分析结果").append("\n");
+
+        stringBuilder.append("分析目标:").append(goal).append("\n");
+        String result = ExcelUtils.excelToCsv(multipartFile);
+        stringBuilder.append(result);
+        return ResultUtils.success(stringBuilder.toString());
+
+//        //读取用户上传的Excel文件
+//        // 文件目录：根据业务、用户来划分
+//        String uuid = RandomStringUtils.randomAlphanumeric(8);
+//        String filename = uuid + "-" + multipartFile.getOriginalFilename();
+//        File file = null;
+//        try {
+//            // 返回可访问地址
+//            return ResultUtils.success("FileConstant.COS_HOST + filepath");
+//        } catch (Exception e) {
+//            //log.error("file upload error, filepath = " + filepath, e);
+//            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "上传失败");
+//        } finally {
+//            if (file != null) {
+//                // 删除临时文件
+//                boolean delete = file.delete();
+//                if (!delete) {
+//                    //log.error("file delete error, filepath = {}", filepath);
+//                }
+//            }
+//        }
+    }
+
 
     /**
      * 获取查询包装类
@@ -225,6 +286,7 @@ public class ChartController {
         }
 
         Long id = chartQueryRequest.getId();
+        String name = chartQueryRequest.getName();
         String goal = chartQueryRequest.getGoal();
         String chartType = chartQueryRequest.getChartType();
         Long userId = chartQueryRequest.getUserId();
@@ -233,6 +295,7 @@ public class ChartController {
 
         // 拼接查询条件
         queryWrapper.eq(id != null && id > 0, "id", id);
+        queryWrapper.like(StringUtils.isNotBlank(name), "name", name);
         queryWrapper.eq(StringUtils.isNotBlank(goal), "goal", goal);
         queryWrapper.eq(StringUtils.isNotBlank(chartType), "chartType", chartType);
         queryWrapper.eq(ObjectUtils.isNotEmpty(userId), "useId", userId);
@@ -242,5 +305,6 @@ public class ChartController {
 
         return queryWrapper;
     }
+
 
 }

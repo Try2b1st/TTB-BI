@@ -30,7 +30,7 @@ export default defineConfig({
   /**
    * @name 主题的配置
    * @description 虽然叫主题，但是其实只是 less 的变量设置
-   * @doc antd的主题设置 https://ant.design/docs/react/customize-theme-cn
+   * @doc antd的主题设置 https://github.com/Try2b1st/docs/react/customize-theme-cn
    * @doc umi 的theme 配置 https://umijs.org/docs/api/config#theme
    */
   theme: {
@@ -73,7 +73,7 @@ export default defineConfig({
    * @name layout 插件
    * @doc https://umijs.org/docs/max/layout-menu
    */
-  title: 'Ant Design Pro',
+  title: 'TTB智能 BI',
   layout: {
     locale: true,
     ...defaultSettings,
