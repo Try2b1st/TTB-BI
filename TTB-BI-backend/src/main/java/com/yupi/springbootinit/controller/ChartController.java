@@ -9,22 +9,22 @@ import com.yupi.springbootinit.common.DeleteRequest;
 import com.yupi.springbootinit.common.ErrorCode;
 import com.yupi.springbootinit.common.ResultUtils;
 import com.yupi.springbootinit.constant.CommonConstant;
-import com.yupi.springbootinit.constant.FileConstant;
 import com.yupi.springbootinit.constant.UserConstant;
 import com.yupi.springbootinit.exception.BusinessException;
 import com.yupi.springbootinit.exception.ThrowUtils;
 import com.yupi.springbootinit.model.dto.chart.*;
-import com.yupi.springbootinit.model.dto.file.UploadFileRequest;
+import com.yupi.springbootinit.model.entity.BiResponse;
 import com.yupi.springbootinit.model.entity.Chart;
 import com.yupi.springbootinit.model.entity.User;
-import com.yupi.springbootinit.model.enums.FileUploadBizEnum;
 import com.yupi.springbootinit.service.ChartService;
 import com.yupi.springbootinit.service.UserService;
 import com.yupi.springbootinit.utils.ExcelUtils;
 import com.yupi.springbootinit.utils.SqlUtils;
+import com.yupi.yucongming.dev.client.YuCongMingClient;
+import com.yupi.yucongming.dev.model.DevChatRequest;
+import com.yupi.yucongming.dev.model.DevChatResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ObjectUtils;
-import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
@@ -32,7 +32,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
-import java.io.File;
 
 /**
  * 帖子接口
@@ -44,6 +43,11 @@ import java.io.File;
 @RequestMapping("/chart")
 @Slf4j
 public class ChartController {
+
+    @Resource
+    private YuCongMingClient client;
+
+    private final Long BI_MODEL_ID = 1659171950288818178L;
 
     @Resource
     private ChartService chartService;
@@ -215,6 +219,7 @@ public class ChartController {
         return ResultUtils.success(result);
     }
 
+
     /**
      * 智能分析
      *
@@ -224,8 +229,8 @@ public class ChartController {
      * @return
      */
     @PostMapping("/gen")
-    public BaseResponse<String> genChartByAi(@RequestPart("file") MultipartFile multipartFile,
-                                             GenChartByAiRequest genChartByAiRequest, HttpServletRequest request) {
+    public BaseResponse<BiResponse> genChartByAi(@RequestPart("file") MultipartFile multipartFile,
+                                                 GenChartByAiRequest genChartByAiRequest, HttpServletRequest request) {
         String name = genChartByAiRequest.getName();
         String goal = genChartByAiRequest.getGoal();
         String chartType = genChartByAiRequest.getChartType();
@@ -237,39 +242,52 @@ public class ChartController {
         ThrowUtils.throwIf(StringUtils.isBlank(name), ErrorCode.PARAMS_ERROR, "图标名字不能为空");
         ThrowUtils.throwIf(name.length() > 100, ErrorCode.PARAMS_ERROR, "图标名称过长");
         ThrowUtils.throwIf(StringUtils.isBlank(goal), ErrorCode.PARAMS_ERROR, "分析目标不能为空");
-        ThrowUtils.throwIf(StringUtils.isBlank(chartType), ErrorCode.PARAMS_ERROR, "请选择图表类型");
 
+        //设置BI模型ID
+        DevChatRequest devChatRequest = new DevChatRequest();
+        devChatRequest.setModelId(BI_MODEL_ID);
+
+        //拼接诉求和数据
         StringBuilder stringBuilder = new StringBuilder();
-        stringBuilder.append("你是一个数据分析师，深入探索数据集以寻找洞见，可以熟练的从海量的数字和模式中汲取信息。你能精" +
-                "心分析趋势、相关性和异常值，揭示有价值的信息。借助先进的工具和算法，能够将复杂的数据可视化，以易于理解的方式" +
-                "呈现。你对细节有着敏锐的洞察力，并深刻理解统计技术，将原始数据转化为有助于决策的见解。你的工作以认真、准确和对解读" +
-                "数字背后故事的热情为特点。我会给你分析目标和原始数据，请告诉我分析结果").append("\n");
-
         stringBuilder.append("分析目标:").append(goal).append("\n");
-        String result = ExcelUtils.excelToCsv(multipartFile);
-        stringBuilder.append(result);
-        return ResultUtils.success(stringBuilder.toString());
 
-//        //读取用户上传的Excel文件
-//        // 文件目录：根据业务、用户来划分
-//        String uuid = RandomStringUtils.randomAlphanumeric(8);
-//        String filename = uuid + "-" + multipartFile.getOriginalFilename();
-//        File file = null;
-//        try {
-//            // 返回可访问地址
-//            return ResultUtils.success("FileConstant.COS_HOST + filepath");
-//        } catch (Exception e) {
-//            //log.error("file upload error, filepath = " + filepath, e);
-//            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "上传失败");
-//        } finally {
-//            if (file != null) {
-//                // 删除临时文件
-//                boolean delete = file.delete();
-//                if (!delete) {
-//                    //log.error("file delete error, filepath = {}", filepath);
-//                }
-//            }
-//        }
+        if(StringUtils.isNotBlank(chartType)){
+            stringBuilder.append("图表类型:").append(chartType).append("\n");
+        }
+
+        String result = ExcelUtils.excelToCsv(multipartFile);
+        stringBuilder.append("原始数据:\n").append(result);
+        devChatRequest.setMessage(stringBuilder.toString());
+
+        //发起请求获取响应
+        com.yupi.yucongming.dev.common.BaseResponse<DevChatResponse> response = client.doChat(devChatRequest);
+        if (response == null) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "AI 响应错误");
+        }
+        //分割两部分数据
+        String[] splits = response.getData().getContent().split("【【【【【");
+
+        //规范返回格式，方便前端
+        String genChart = splits[1].trim();
+        String genResult = splits[2].trim();
+
+        //将数据保存到数据库中
+        Chart chart = new Chart();
+        chart.setName(name);
+        chart.setGoal(goal);
+        chart.setChartData(result);
+        chart.setGenChart(genChart);
+        chart.setGenResult(genResult);
+        chart.setUserId(loginUser.getId());
+        boolean saveResult = chartService.save(chart);
+        ThrowUtils.throwIf(!saveResult,ErrorCode.SYSTEM_ERROR,"图标保存失败");
+
+        BiResponse biResponse = new BiResponse();
+        biResponse.setGenChart(genChart);
+        biResponse.setGenResult(genResult);
+        biResponse.setChartId(chart.getId());
+
+        return ResultUtils.success(biResponse);
     }
 
 

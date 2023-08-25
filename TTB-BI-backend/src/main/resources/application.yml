@@ -90,3 +90,9 @@ cos:
     secretKey: xxx
     region: xxx
     bucket: xxx
+
+# 鱼聪明AI接口配置
+yuapi:
+  client:
+    access-key: xx
+    secret-key: xx
