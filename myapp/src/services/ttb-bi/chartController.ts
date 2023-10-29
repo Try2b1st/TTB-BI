@@ -32,6 +32,18 @@ export async function deleteChartUsingPOST(
   });
 }
 
+/** doWhat POST /api/chart/doWhat */
+export async function doWhatUsingPOST(body: string, options?: { [key: string]: any }) {
+  return request<API.BaseResponseString_>('/api/chart/doWhat', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    data: body,
+    ...(options || {}),
+  });
+}
+
 /** editChart POST /api/chart/edit */
 export async function editChartUsingPOST(
   body: API.ChartEditRequest,

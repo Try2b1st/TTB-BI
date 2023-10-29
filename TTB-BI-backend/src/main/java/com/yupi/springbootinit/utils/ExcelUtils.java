@@ -8,16 +8,11 @@ import com.yupi.springbootinit.exception.BusinessException;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.util.ResourceUtils;
 import org.springframework.web.multipart.MultipartFile;
-
-import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -28,12 +23,6 @@ import java.util.stream.Collectors;
 @Slf4j
 public class ExcelUtils {
     public static String excelToCsv(MultipartFile multipartFile) {
-//        File file = null;
-//        try {
-//            file = ResourceUtils.getFile("classpath:网站数据.xlsx");
-//        } catch (FileNotFoundException e) {
-//            throw new RuntimeException(e);
-//        }
         //读取数据
         List<Map<Integer, String>> list = null;
         try {
@@ -51,7 +40,7 @@ public class ExcelUtils {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "表格为空");
         }
 
-        //转化位CSV
+        //转化为CSV
         StringBuilder stringBuilder = new StringBuilder();
         //读取表头
         LinkedHashMap<Integer, String> linkedHeadMap = (LinkedHashMap) list.get(0);
@@ -67,8 +56,4 @@ public class ExcelUtils {
         System.out.println(stringBuilder);
         return stringBuilder.toString();
     }
-
-//    public static void main(String[] args) {
-//        ExcelUtils.excelToCsv(null);
-//    }
 }

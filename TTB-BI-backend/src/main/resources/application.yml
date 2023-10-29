@@ -94,5 +94,5 @@ cos:
 # 鱼聪明AI接口配置
 yuapi:
   client:
-    access-key: xxx
-    secret-key: xxx
+    access-key: z
+    secret-key: z

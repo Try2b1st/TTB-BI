@@ -1,5 +1,6 @@
 package com.yupi.springbootinit.controller;
 
+import cn.hutool.core.io.FileUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.google.gson.Gson;
@@ -18,6 +19,7 @@ import com.yupi.springbootinit.model.entity.Chart;
 import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.service.ChartService;
 import com.yupi.springbootinit.service.UserService;
+import com.yupi.springbootinit.utils.CreateTableUtil;
 import com.yupi.springbootinit.utils.ExcelUtils;
 import com.yupi.springbootinit.utils.SqlUtils;
 import com.yupi.yucongming.dev.client.YuCongMingClient;
@@ -32,6 +34,10 @@ import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * 帖子接口
@@ -54,6 +60,9 @@ public class ChartController {
 
     @Resource
     private UserService userService;
+
+    @Resource
+    private CreateTableUtil createTableUtil;
 
     private final static Gson GSON = new Gson();
 
@@ -243,6 +252,18 @@ public class ChartController {
         ThrowUtils.throwIf(name.length() > 100, ErrorCode.PARAMS_ERROR, "图标名称过长");
         ThrowUtils.throwIf(StringUtils.isBlank(goal), ErrorCode.PARAMS_ERROR, "分析目标不能为空");
 
+        //校验文件大小
+        long size = multipartFile.getSize();
+        final long ONE_MB = 1024 * 1024L;
+        ThrowUtils.throwIf(size > ONE_MB, ErrorCode.PARAMS_ERROR, "目标文件过大");
+
+        //校验文件后缀
+        final String FILE_NAME = multipartFile.getOriginalFilename();
+        String suffix = FileUtil.getSuffix(FILE_NAME);
+        final List<String> validOriginalSuffix = Arrays.asList("word", "excel");
+        ThrowUtils.throwIf(!validOriginalSuffix.contains(suffix), ErrorCode.PARAMS_ERROR, "目标文件不符合分析需求");
+
+
         //设置BI模型ID
         DevChatRequest devChatRequest = new DevChatRequest();
         devChatRequest.setModelId(BI_MODEL_ID);
@@ -251,7 +272,7 @@ public class ChartController {
         StringBuilder stringBuilder = new StringBuilder();
         stringBuilder.append("分析目标:").append(goal).append("\n");
 
-        if(StringUtils.isNotBlank(chartType)){
+        if (StringUtils.isNotBlank(chartType)) {
             stringBuilder.append("图表类型:").append(chartType).append("\n");
         }
 
@@ -275,12 +296,31 @@ public class ChartController {
         Chart chart = new Chart();
         chart.setName(name);
         chart.setGoal(goal);
-        chart.setChartData(result);
+        chart.setChartType(chartType);
+
+        //分表
+        chart.setChartData("在chart_{ID}表");
+
         chart.setGenChart(genChart);
         chart.setGenResult(genResult);
         chart.setUserId(loginUser.getId());
         boolean saveResult = chartService.save(chart);
-        ThrowUtils.throwIf(!saveResult,ErrorCode.SYSTEM_ERROR,"图标保存失败");
+        ThrowUtils.throwIf(!saveResult, ErrorCode.SYSTEM_ERROR, "图表保存失败");
+
+        //分表保存
+        ChartQueryRequest c = new ChartQueryRequest();
+        c.setName(name);
+        c.setGoal(goal);
+        c.setChartType(chartType);
+        c.setUserId(loginUser.getId());
+        c.setGenResult(genResult);
+        String chartId = String.valueOf(chartService.getOne(getQueryWrapper(c)).getId());
+        try {
+            createTableUtil.createTable(result, chartId);
+            createTableUtil.insertData(result, chartId);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
 
         BiResponse biResponse = new BiResponse();
         biResponse.setGenChart(genChart);
@@ -308,6 +348,7 @@ public class ChartController {
         String goal = chartQueryRequest.getGoal();
         String chartType = chartQueryRequest.getChartType();
         Long userId = chartQueryRequest.getUserId();
+        String genResult = chartQueryRequest.getGenResult();
         String sortField = chartQueryRequest.getSortField();
         String sortOrder = chartQueryRequest.getSortOrder();
 
@@ -317,11 +358,31 @@ public class ChartController {
         queryWrapper.eq(StringUtils.isNotBlank(goal), "goal", goal);
         queryWrapper.eq(StringUtils.isNotBlank(chartType), "chartType", chartType);
         queryWrapper.eq(ObjectUtils.isNotEmpty(userId), "useId", userId);
+        queryWrapper.like(StringUtils.isNotBlank(genResult), "genResult", genResult);
         queryWrapper.eq("isDelete", false);
         queryWrapper.orderBy(SqlUtils.validSortField(sortField), sortOrder.equals(CommonConstant.SORT_ORDER_ASC),
                 sortField);
 
         return queryWrapper;
+    }
+
+    @PostMapping("/doWhat")
+    public BaseResponse<String> doWhat(@RequestBody String question) {
+        //校验数据
+        ThrowUtils.throwIf(StringUtils.isBlank(question), ErrorCode.PARAMS_ERROR, "分析目标不能为空");
+
+        //设置BI模型ID
+        DevChatRequest devChatRequest = new DevChatRequest();
+        devChatRequest.setModelId(1714299791942766594L);
+        //设置问题
+        devChatRequest.setMessage(question);
+
+        //发起请求获取响应
+        com.yupi.yucongming.dev.common.BaseResponse<DevChatResponse> response = client.doChat(devChatRequest);
+        if (response == null) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "AI 响应错误");
+        }
+        return ResultUtils.success(response.getData().getContent());
     }
 
 

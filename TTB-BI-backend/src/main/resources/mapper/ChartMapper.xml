@@ -24,4 +24,23 @@
         userId,createTime,updateTime,
         isDelete
     </sql>
+    <insert id="insertData">
+        INSERT INTO ${tableName}
+        <foreach collection="columnNames" item="columnName" separator=", " open="(" close=")">
+            ${columnName}
+        </foreach>
+        VALUES
+        <foreach collection="values" item="value" separator=", " open="(" close=")">
+            #{value}
+        </foreach>
+    </insert>
+
+    <update id="createTable">
+        CREATE TABLE ${tableName} (${columns})
+    </update>
+
+    <select id="queryChartData" parameterType="string" resultType="map">
+        ${querySql}
+    </select>
+
 </mapper>

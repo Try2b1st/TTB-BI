@@ -2,6 +2,10 @@ package com.yupi.springbootinit.mapper;
 
 import com.yupi.springbootinit.model.entity.Chart;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import org.springframework.data.repository.query.Param;
+
+import java.util.List;
+import java.util.Map;
 
 /**
 * @author 下水道的小老鼠
@@ -10,7 +14,11 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 * @Entity com.yupi.springbootinit.model.entity.Chart
 */
 public interface ChartMapper extends BaseMapper<Chart> {
+    void createTable(@Param("tableName") String tableName, @Param("columns") String columns);
 
+    void insertData(@Param("tableName") String tableName, @Param("columnNames") String[] columnNames, @Param("values") String[] values);
+
+    List<Map<String, Object>> queryChartData(String querySql);
 }
 
 
