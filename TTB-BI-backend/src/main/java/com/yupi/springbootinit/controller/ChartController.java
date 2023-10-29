@@ -13,6 +13,7 @@ import com.yupi.springbootinit.constant.CommonConstant;
 import com.yupi.springbootinit.constant.UserConstant;
 import com.yupi.springbootinit.exception.BusinessException;
 import com.yupi.springbootinit.exception.ThrowUtils;
+import com.yupi.springbootinit.manager.RedisLimiterManager;
 import com.yupi.springbootinit.model.dto.chart.*;
 import com.yupi.springbootinit.model.entity.BiResponse;
 import com.yupi.springbootinit.model.entity.Chart;
@@ -63,6 +64,9 @@ public class ChartController {
 
     @Resource
     private CreateTableUtil createTableUtil;
+
+    @Resource
+    private RedisLimiterManager redisLimiterManager;
 
     private final static Gson GSON = new Gson();
 
@@ -262,6 +266,9 @@ public class ChartController {
         String suffix = FileUtil.getSuffix(FILE_NAME);
         final List<String> validOriginalSuffix = Arrays.asList("word", "excel");
         ThrowUtils.throwIf(!validOriginalSuffix.contains(suffix), ErrorCode.PARAMS_ERROR, "目标文件不符合分析需求");
+
+        //限流设置
+        redisLimiterManager.doRateLimit("genChart_" + loginUser.getId());
 
 
         //设置BI模型ID

@@ -13,39 +13,43 @@ spring:
       matching-strategy: ant_path_matcher
   # session 配置
   session:
-    # todo 取消注释开启分布式 session（须先配置 Redis）
-    # store-type: redis
-    # 30 天过期
-    timeout: 2592000
+    timeout: 86400
+    store-type: redis
+
   # 数据库配置
-  # todo 需替换配置
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://localhost:3306/bi_db
     username: root
     password: 1234
   # Redis 配置
-  # todo 需替换配置，然后取消注释
-#  redis:
-#    database: 1
-#    host: localhost
-#    port: 6379
-#    timeout: 5000
-#    password: 123456
+  redis:
+    database: 0
+    host: localhost
+    port: 6379
+    timeout: 5000
+
+  redisson:
+    database: 1
+    host: localhost
+    port: 6379
+    timeout: 5000
+
   # Elasticsearch 配置
-  # todo 需替换配置，然后取消注释
 #  elasticsearch:
 #    uris: http://localhost:9200
 #    username: root
 #    password: 123456
-  # 文件上传
+
   servlet:
     multipart:
       # 大小限制
       max-file-size: 10MB
+
+
 server:
   address: 0.0.0.0
-  port: 8101
+  port: 8111
   servlet:
     context-path: /api
     # cookie 30 天过期
@@ -63,8 +67,8 @@ mybatis-plus:
       logic-not-delete-value: 0 # 逻辑未删除值（默认为 0）
 # 微信相关
 wx:
-  # 微信公众平台
-  # todo 需替换配置
+#  # 微信公众平台
+#  # todo 需替换配置
   mp:
     token: xxx
     aesKey: xxx
@@ -77,13 +81,13 @@ wx:
         host: 127.0.0.1
         port: 6379
       type: Memory
-  # 微信开放平台
-  # todo 需替换配置
+#  # 微信开放平台
+#  # todo 需替换配置
   open:
     appId: xxx
     appSecret: xxx
-# 对象存储
-# todo 需替换配置
+## 对象存储
+## todo 需替换配置
 cos:
   client:
     accessKey: xxx
@@ -91,8 +95,3 @@ cos:
     region: xxx
     bucket: xxx
 
-# 鱼聪明AI接口配置
-yuapi:
-  client:
-    access-key: z
-    secret-key: z
