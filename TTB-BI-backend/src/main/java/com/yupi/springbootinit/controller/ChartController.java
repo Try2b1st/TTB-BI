@@ -36,7 +36,6 @@ import org.springframework.web.multipart.MultipartFile;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -269,7 +268,6 @@ public class ChartController {
 
         //限流设置
         redisLimiterManager.doRateLimit("genChart_" + loginUser.getId());
-
 
         //设置BI模型ID
         DevChatRequest devChatRequest = new DevChatRequest();

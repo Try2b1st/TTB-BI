@@ -121,6 +121,7 @@ declare namespace API {
   type ChartQueryRequest = {
     chartType?: string;
     current?: number;
+    genResult?: string;
     goal?: string;
     id?: number;
     name?: string;

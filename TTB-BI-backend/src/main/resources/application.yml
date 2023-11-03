@@ -49,7 +49,7 @@ spring:
 
 server:
   address: 0.0.0.0
-  port: 8111
+  port: 8101
   servlet:
     context-path: /api
     # cookie 30 天过期
@@ -95,3 +95,8 @@ cos:
     region: xxx
     bucket: xxx
 
+# 鱼聪明AI接口配置
+yuapi:
+  client:
+    access-key: 4wa3gkaest05pmvubg1lmzca1i2k4jsb
+    secret-key: l2hv1x2p6qqgwuiixxdw8wbsikdc5ggc
