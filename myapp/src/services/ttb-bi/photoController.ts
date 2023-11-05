@@ -2,9 +2,19 @@
 /* eslint-disable */
 import { request } from '@umijs/max';
 
-/** handleFileUpload POST /api/photo/upload */
-export async function handleFileUploadUsingPOST(body: string, options?: { [key: string]: any }) {
+/** uploadImage POST /api/photo/upload */
+export async function uploadImageUsingPOST(
+  // 叠加生成的Param类型 (非body参数swagger默认没有生成对象)
+  params: API.uploadImageUsingPOSTParams,
+  body: {},
+  file?: File,
+  options?: { [key: string]: any },
+) {
   const formData = new FormData();
+
+  if (file) {
+    formData.append('file', file);
+  }
 
   Object.keys(body).forEach((ele) => {
     const item = (body as any)[ele];
@@ -24,6 +34,9 @@ export async function handleFileUploadUsingPOST(body: string, options?: { [key: 
 
   return request<any>('/api/photo/upload', {
     method: 'POST',
+    params: {
+      ...params,
+    },
     data: formData,
     requestType: 'form',
     ...(options || {}),

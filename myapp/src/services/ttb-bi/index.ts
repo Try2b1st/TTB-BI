@@ -8,6 +8,7 @@ import * as photoController from './photoController';
 import * as postController from './postController';
 import * as postFavourController from './postFavourController';
 import * as postThumbController from './postThumbController';
+import * as threadController from './threadController';
 import * as userController from './userController';
 export default {
   chartController,
@@ -16,5 +17,6 @@ export default {
   postController,
   postFavourController,
   postThumbController,
+  threadController,
   userController,
 };

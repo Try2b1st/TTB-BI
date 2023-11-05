@@ -1,11 +1,10 @@
-import { LoadingOutlined, PlusOutlined } from '@ant-design/icons';
-import {Button, Card, Col, Form, message, Row, Space, Spin, Upload} from 'antd';
+import { LoadingOutlined,PlusOutlined } from '@ant-design/icons';
+import { Button,Card,Col,Form,message,Row,Space,Spin,Upload } from 'antd';
 
 import type { UploadChangeParam } from 'antd/es/upload';
-import type { RcFile, UploadFile, UploadProps } from 'antd/es/upload/interface';
-import React, { useState } from 'react';
-import {genChartByAiUsingPOST} from "@/services/ttb-bi/chartController";
-import {handleFileUploadUsingPOST} from "@/services/ttb-bi/photoController";
+import type { RcFile,UploadFile,UploadProps } from 'antd/es/upload/interface';
+import React,{ useState } from 'react';
+import {uploadImageUsingPOST} from "@/services/ttb-bi/photoController";
 
 const getBase64 = (img: RcFile, callback: (url: string) => void) => {
   const reader = new FileReader();
@@ -44,16 +43,18 @@ const Photo: React.FC = () => {
     }
     setSubmitting(true);
 
-    // 创建一个 FormData 实例来存储表单数据
-    const formData = new FormData();
-    formData.append('file', values.file.file);
+
+    const params = {
+      ...values,
+      file: undefined,
+    };
 
     try {
-      const result = await handleFileUploadUsingPOST(formData,{});
+      const result = await uploadImageUsingPOST(params, {}, values.file.file.originFileObj);
+      console.log(result);
     } catch (e) {
       message.success('上传图片失败.' + e);
     }
-
   };
 
   const handleSliderChange = (event) => {

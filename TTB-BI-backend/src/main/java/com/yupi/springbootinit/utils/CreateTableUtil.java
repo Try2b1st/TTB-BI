@@ -23,7 +23,7 @@ public class CreateTableUtil {
 
         StringBuilder columns = new StringBuilder();
         for (int i = 0; i < columnNames.length; i++) {
-            columns.append(columnNames[i]).append(" VARCHAR(255)");
+            columns.append(columnNames[i]).append(" VARCHAR(255) character set utf8");
             if (i < columnNames.length - 1) {
                 columns.append(", ");
             }
@@ -38,7 +38,7 @@ public class CreateTableUtil {
         String tableName = "chart_" + chartId;
         for (int i = 1; i < lines.length; i++) {
             String[] columnData = lines[i].split(",");
-            chartMapper.insertData(tableName.toString(), columnNames, columnData);
+            chartMapper.insertData(tableName, columnNames, columnData);
         }
         return true;
     }

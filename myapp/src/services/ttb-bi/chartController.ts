@@ -59,7 +59,7 @@ export async function editChartUsingPOST(
   });
 }
 
-/** genChartByAi POST /api/chart/gen */
+/** genChartByAi POST /api/chart/gen/Async */
 export async function genChartByAiUsingPOST(
   // 叠加生成的Param类型 (非body参数swagger默认没有生成对象)
   params: API.genChartByAiUsingPOSTParams,
@@ -89,7 +89,7 @@ export async function genChartByAiUsingPOST(
     }
   });
 
-  return request<API.BaseResponseBiResponse_>('/api/chart/gen', {
+  return request<API.BaseResponseBiResponse_>('/api/chart/gen/Async', {
     method: 'POST',
     params: {
       ...params,

@@ -18,6 +18,7 @@ import com.yupi.springbootinit.model.dto.chart.*;
 import com.yupi.springbootinit.model.entity.BiResponse;
 import com.yupi.springbootinit.model.entity.Chart;
 import com.yupi.springbootinit.model.entity.User;
+import com.yupi.springbootinit.model.enums.ChartStatusEnum;
 import com.yupi.springbootinit.service.ChartService;
 import com.yupi.springbootinit.service.UserService;
 import com.yupi.springbootinit.utils.CreateTableUtil;
@@ -38,6 +39,8 @@ import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ThreadPoolExecutor;
 
 /**
  * 帖子接口
@@ -66,6 +69,9 @@ public class ChartController {
 
     @Resource
     private RedisLimiterManager redisLimiterManager;
+
+    @Resource
+    private ThreadPoolExecutor threadPoolExecutor;
 
     private final static Gson GSON = new Gson();
 
@@ -240,7 +246,7 @@ public class ChartController {
      * @param request
      * @return
      */
-    @PostMapping("/gen")
+    @PostMapping("/gen/Async")
     public BaseResponse<BiResponse> genChartByAi(@RequestPart("file") MultipartFile multipartFile,
                                                  GenChartByAiRequest genChartByAiRequest, HttpServletRequest request) {
         String name = genChartByAiRequest.getName();
@@ -248,6 +254,8 @@ public class ChartController {
         String chartType = genChartByAiRequest.getChartType();
         User loginUser = userService.getLoginUser(request);
 
+        //校验用户
+        ThrowUtils.throwIf(loginUser == null, ErrorCode.PARAMS_ERROR, "请登录");
 
         //校验数据
         ThrowUtils.throwIf(StringUtils.isBlank(goal), ErrorCode.PARAMS_ERROR, "分析目标不能为空");
@@ -263,10 +271,10 @@ public class ChartController {
         //校验文件后缀
         final String FILE_NAME = multipartFile.getOriginalFilename();
         String suffix = FileUtil.getSuffix(FILE_NAME);
-        final List<String> validOriginalSuffix = Arrays.asList("word", "excel");
+        final List<String> validOriginalSuffix = Arrays.asList("xls", "xlsx");
         ThrowUtils.throwIf(!validOriginalSuffix.contains(suffix), ErrorCode.PARAMS_ERROR, "目标文件不符合分析需求");
 
-        //限流设置
+        //限流设置(令牌桶)
         redisLimiterManager.doRateLimit("genChart_" + loginUser.getId());
 
         //设置BI模型ID
@@ -285,54 +293,80 @@ public class ChartController {
         stringBuilder.append("原始数据:\n").append(result);
         devChatRequest.setMessage(stringBuilder.toString());
 
-        //发起请求获取响应
-        com.yupi.yucongming.dev.common.BaseResponse<DevChatResponse> response = client.doChat(devChatRequest);
-        if (response == null) {
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "AI 响应错误");
-        }
-        //分割两部分数据
-        String[] splits = response.getData().getContent().split("【【【【【");
-
-        //规范返回格式，方便前端
-        String genChart = splits[1].trim();
-        String genResult = splits[2].trim();
-
         //将数据保存到数据库中
         Chart chart = new Chart();
         chart.setName(name);
         chart.setGoal(goal);
         chart.setChartType(chartType);
-
+        chart.setStatus(ChartStatusEnum.STATUS_WAIT.getMessage());
+        chart.setUserId(loginUser.getId());
         //分表
         chart.setChartData("在chart_{ID}表");
-
-        chart.setGenChart(genChart);
-        chart.setGenResult(genResult);
-        chart.setUserId(loginUser.getId());
+        //mybatis-plus新增成功后，会将主键赋值到传入的实体中
         boolean saveResult = chartService.save(chart);
         ThrowUtils.throwIf(!saveResult, ErrorCode.SYSTEM_ERROR, "图表保存失败");
 
         //分表保存
-        ChartQueryRequest c = new ChartQueryRequest();
-        c.setName(name);
-        c.setGoal(goal);
-        c.setChartType(chartType);
-        c.setUserId(loginUser.getId());
-        c.setGenResult(genResult);
-        String chartId = String.valueOf(chartService.getOne(getQueryWrapper(c)).getId());
         try {
-            createTableUtil.createTable(result, chartId);
-            createTableUtil.insertData(result, chartId);
+            createTableUtil.createTable(result, String.valueOf(chart.getId()));
+            createTableUtil.insertData(result, String.valueOf(chart.getId()));
         } catch (IOException e) {
+            log.info("保存用户图表数据错误，图表ID：" + chart.getId());
             throw new RuntimeException(e);
         }
 
+        //捕获线程池已满的异常
+        try {
+            CompletableFuture.runAsync(() -> {
+                Chart updateChart = new Chart();
+                updateChart.setId(chart.getId());
+                updateChart.setStatus(ChartStatusEnum.STATUS_RUNNING.getMessage());
+                boolean updateStatus = chartService.updateById(updateChart);
+                if(!updateStatus){
+                    handleChartUpdateError(chart.getId(),"更新图表 运行状态 失败");
+                }
+                //发起请求获取响应
+                com.yupi.yucongming.dev.common.BaseResponse<DevChatResponse> response = client.doChat(devChatRequest);
+                if (response == null) {
+                    throw new BusinessException(ErrorCode.SYSTEM_ERROR, "AI 响应错误");
+                }
+
+                //分割两部分数据
+                String[] splits = response.getData().getContent().split("【【【【【");
+
+                //规范返回格式，方便前端
+                String genChart = splits[1].trim();
+                String genResult = splits[2].trim();
+                Chart updateChartResult = new Chart();
+                updateChartResult.setId(chart.getId());
+                updateChartResult.setGenChart(genChart);
+                updateChartResult.setGenResult(genResult);
+                updateChartResult.setStatus(ChartStatusEnum.STATUS_SUCCEED.getMessage());
+                boolean updateResult = chartService.updateById(updateChartResult);
+                if(!updateResult){
+                    handleChartUpdateError(chart.getId(),"更新图表 成功状态和AI结果 失败");
+                }
+            }, threadPoolExecutor);
+        } catch (Exception e) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "线程池已经满了，无法再接收更多请求，请稍后再试");
+        }
+
+
         BiResponse biResponse = new BiResponse();
-        biResponse.setGenChart(genChart);
-        biResponse.setGenResult(genResult);
         biResponse.setChartId(chart.getId());
 
         return ResultUtils.success(biResponse);
+    }
+
+    private void handleChartUpdateError(Long chartId, String execMessage) {
+        Chart updateChart = new Chart();
+        updateChart.setId(chartId);
+        updateChart.setStatus(ChartStatusEnum.STATUS_FAILED.getMessage());
+        updateChart.setExecMessage(execMessage);
+        boolean update = chartService.updateById(updateChart);
+        if (!update) {
+            log.error("更新图表 失败状态 失败" + chartId + "," + execMessage);
+        }
     }
 
 
@@ -370,25 +404,5 @@ public class ChartController {
 
         return queryWrapper;
     }
-
-    @PostMapping("/doWhat")
-    public BaseResponse<String> doWhat(@RequestBody String question) {
-        //校验数据
-        ThrowUtils.throwIf(StringUtils.isBlank(question), ErrorCode.PARAMS_ERROR, "分析目标不能为空");
-
-        //设置BI模型ID
-        DevChatRequest devChatRequest = new DevChatRequest();
-        devChatRequest.setModelId(1714299791942766594L);
-        //设置问题
-        devChatRequest.setMessage(question);
-
-        //发起请求获取响应
-        com.yupi.yucongming.dev.common.BaseResponse<DevChatResponse> response = client.doChat(devChatRequest);
-        if (response == null) {
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "AI 响应错误");
-        }
-        return ResultUtils.success(response.getData().getContent());
-    }
-
 
 }

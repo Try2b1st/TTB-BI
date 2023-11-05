@@ -44,6 +44,18 @@ public class Chart implements Serializable {
     private String chartType;
 
     /**
+     * 任务状态
+     */
+    @TableField(value = "status")
+    private String status;
+
+    /**
+     * 执行信息
+     */
+    @TableField(value = "execMessage")
+    private String execMessage;
+
+    /**
      * 生成的图表数据
      */
     @TableField(value = "genChart")
