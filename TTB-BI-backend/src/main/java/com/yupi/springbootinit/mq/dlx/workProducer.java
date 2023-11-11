@@ -1,4 +1,4 @@
-package com.yupi.springbootinit.mq;
+package com.yupi.springbootinit.mq.dlx;
 
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
@@ -7,29 +7,35 @@ import com.rabbitmq.client.MessageProperties;
 
 import java.util.Scanner;
 
-public class MultiProducer {
-
-    private static final String TASK_QUEUE_NAME = "multi_queue";
+public class workProducer {
+    private static final String EXCHANGE_NAME = "work-direct-exchange";
 
     public static void main(String[] argv) throws Exception {
         ConnectionFactory factory = new ConnectionFactory();
         factory.setHost("localhost");
+
         try (Connection connection = factory.newConnection();
              Channel channel = connection.createChannel()) {
-            //durable: true 队列持久化，重启不丢失
-            channel.queueDeclare(TASK_QUEUE_NAME, true, false, false, null);
+            //声明交换机
+            channel.exchangeDeclare(EXCHANGE_NAME, "direct");
 
             Scanner scanner = new Scanner(System.in);
             while (scanner.hasNext()) {
-                String message = scanner.nextLine();
-                //MessageProperties.PERSISTENT_TEXT_PLAIN  消息持久化，重启后消息不丢失
-                channel.basicPublish("", TASK_QUEUE_NAME,
+                String userInput = scanner.nextLine();
+                String[] strings = userInput.split(" ");
+                if (strings.length < 1) {
+                    continue;
+                }
+                String message = strings[0];
+                String routingKey = strings[1];
+
+                channel.basicPublish(EXCHANGE_NAME,
+                        routingKey,
                         MessageProperties.PERSISTENT_TEXT_PLAIN,
                         message.getBytes("UTF-8"));
-                System.out.println(" [x] Sent '" + message + "'");
+                System.out.println(" [老板] Sent '" + message + "' with routingKey : " + routingKey);
             }
 
         }
     }
-
 }

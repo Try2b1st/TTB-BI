@@ -1,4 +1,4 @@
-package com.yupi.springbootinit.mq;
+package com.yupi.springbootinit.mq.fanout;
 
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
@@ -7,32 +7,25 @@ import com.rabbitmq.client.MessageProperties;
 
 import java.util.Scanner;
 
-public class DirectProducer {
-    private static final String EXCHANGE_NAME = "direct-exchange";
+public class FanoutProducer {
+
+    private static final String EXCHANGE_NAME = "fanout-exchange";
 
     public static void main(String[] argv) throws Exception {
         ConnectionFactory factory = new ConnectionFactory();
         factory.setHost("localhost");
-
         try (Connection connection = factory.newConnection();
              Channel channel = connection.createChannel()) {
-            channel.exchangeDeclare(EXCHANGE_NAME, "direct");
+            channel.exchangeDeclare(EXCHANGE_NAME, "fanout");
 
             Scanner scanner = new Scanner(System.in);
             while (scanner.hasNext()) {
-                String userInput = scanner.nextLine();
-                String[] strings = userInput.split(" ");
-                if (strings.length < 1) {
-                    continue;
-                }
-                String message = strings[0];
-                String routingKey = strings[1];
-
+                String message = scanner.nextLine();
                 channel.basicPublish(EXCHANGE_NAME,
-                        routingKey,
+                        "",
                         MessageProperties.PERSISTENT_TEXT_PLAIN,
                         message.getBytes("UTF-8"));
-                System.out.println(" [老板] Sent '" + message + "' with routingKey : " + routingKey);
+                System.out.println(" [老板] Sent '" + message + "'");
             }
 
         }

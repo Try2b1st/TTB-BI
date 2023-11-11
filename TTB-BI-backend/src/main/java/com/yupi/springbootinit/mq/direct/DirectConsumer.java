@@ -1,4 +1,4 @@
-package com.yupi.springbootinit.mq;
+package com.yupi.springbootinit.mq.direct;
 
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
@@ -44,8 +44,5 @@ public class DirectConsumer {
         });
         channel.basicConsume(queueName2, true, xiaopiDeliverCallback, consumerTag -> {
         });
-
-
-
     }
 }
