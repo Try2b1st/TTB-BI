@@ -1,9 +1,9 @@
+import { genChartByAiMqUsingPOST } from '@/services/ttb-bi/chartController';
 import { UploadOutlined } from '@ant-design/icons';
 import { Button, Card, Form, Input, message, Select, Space, Upload } from 'antd';
 import TextArea from 'antd/es/input/TextArea';
 import { useForm } from 'antd/lib/form/Form';
 import React, { useState } from 'react';
-import {genChartByAiUsingPOST} from "@/services/ttb-bi/chartController";
 
 /**
  * 生成图表
@@ -25,7 +25,7 @@ const AddChartAsync: React.FC = () => {
     };
 
     try {
-      const result = await genChartByAiUsingPOST(params, {}, values.file.file.originFileObj);
+      const result = await genChartByAiMqUsingPOST(params, {}, values.file.file.originFileObj);
       console.log(result);
       if (!result?.data) {
         message.success('分析失败');

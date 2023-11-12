@@ -5,6 +5,8 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.google.gson.Gson;
 import com.yupi.springbootinit.annotation.AuthCheck;
+import com.yupi.springbootinit.bizmq.BiConstant;
+import com.yupi.springbootinit.bizmq.BiProducer;
 import com.yupi.springbootinit.common.BaseResponse;
 import com.yupi.springbootinit.common.DeleteRequest;
 import com.yupi.springbootinit.common.ErrorCode;
@@ -56,7 +58,8 @@ public class ChartController {
     @Resource
     private YuCongMingClient client;
 
-    private final Long BI_MODEL_ID = 1659171950288818178L;
+    @Resource
+    private BiProducer biProducer;
 
     @Resource
     private ChartService chartService;
@@ -279,7 +282,7 @@ public class ChartController {
 
         //设置BI模型ID
         DevChatRequest devChatRequest = new DevChatRequest();
-        devChatRequest.setModelId(BI_MODEL_ID);
+        devChatRequest.setModelId(CommonConstant.BI_MODEL_ID);
 
         //拼接诉求和数据
         StringBuilder stringBuilder = new StringBuilder();
@@ -322,8 +325,8 @@ public class ChartController {
                 updateChart.setId(chart.getId());
                 updateChart.setStatus(ChartStatusEnum.STATUS_RUNNING.getMessage());
                 boolean updateStatus = chartService.updateById(updateChart);
-                if(!updateStatus){
-                    handleChartUpdateError(chart.getId(),"更新图表 运行状态 失败");
+                if (!updateStatus) {
+                    chartService.handleChartUpdateError(chart.getId(), "更新图表 运行状态 失败");
                 }
                 //发起请求获取响应
                 com.yupi.yucongming.dev.common.BaseResponse<DevChatResponse> response = client.doChat(devChatRequest);
@@ -343,8 +346,8 @@ public class ChartController {
                 updateChartResult.setGenResult(genResult);
                 updateChartResult.setStatus(ChartStatusEnum.STATUS_SUCCEED.getMessage());
                 boolean updateResult = chartService.updateById(updateChartResult);
-                if(!updateResult){
-                    handleChartUpdateError(chart.getId(),"更新图表 成功状态和AI结果 失败");
+                if (!updateResult) {
+                    chartService.handleChartUpdateError(chart.getId(), "更新图表 成功状态和AI结果 失败");
                 }
             }, threadPoolExecutor);
         } catch (Exception e) {
@@ -358,15 +361,70 @@ public class ChartController {
         return ResultUtils.success(biResponse);
     }
 
-    private void handleChartUpdateError(Long chartId, String execMessage) {
-        Chart updateChart = new Chart();
-        updateChart.setId(chartId);
-        updateChart.setStatus(ChartStatusEnum.STATUS_FAILED.getMessage());
-        updateChart.setExecMessage(execMessage);
-        boolean update = chartService.updateById(updateChart);
-        if (!update) {
-            log.error("更新图表 失败状态 失败" + chartId + "," + execMessage);
+    @PostMapping("/gen/Async/mq")
+
+    public BaseResponse<BiResponse> genChartByAiMq(@RequestPart("file") MultipartFile multipartFile,
+                                                   GenChartByAiRequest genChartByAiRequest, HttpServletRequest request) {
+        String name = genChartByAiRequest.getName();
+        String goal = genChartByAiRequest.getGoal();
+        String chartType = genChartByAiRequest.getChartType();
+        User loginUser = userService.getLoginUser(request);
+
+        //校验用户
+        ThrowUtils.throwIf(loginUser == null, ErrorCode.PARAMS_ERROR, "请登录");
+
+        //校验数据
+        ThrowUtils.throwIf(StringUtils.isBlank(goal), ErrorCode.PARAMS_ERROR, "分析目标不能为空");
+        ThrowUtils.throwIf(StringUtils.isBlank(name), ErrorCode.PARAMS_ERROR, "图标名字不能为空");
+        ThrowUtils.throwIf(name.length() > 100, ErrorCode.PARAMS_ERROR, "图标名称过长");
+        ThrowUtils.throwIf(StringUtils.isBlank(goal), ErrorCode.PARAMS_ERROR, "分析目标不能为空");
+
+        //校验文件大小
+        long size = multipartFile.getSize();
+        final long ONE_MB = 1024 * 1024L;
+        ThrowUtils.throwIf(size > ONE_MB, ErrorCode.PARAMS_ERROR, "目标文件过大");
+
+        //校验文件后缀
+        final String FILE_NAME = multipartFile.getOriginalFilename();
+        String suffix = FileUtil.getSuffix(FILE_NAME);
+        final List<String> validOriginalSuffix = Arrays.asList("xls", "xlsx");
+        ThrowUtils.throwIf(!validOriginalSuffix.contains(suffix), ErrorCode.PARAMS_ERROR, "目标文件不符合分析需求");
+
+        //限流设置(令牌桶)
+        redisLimiterManager.doRateLimit("genChart_" + loginUser.getId());
+
+
+        //将数据保存到数据库中
+        Chart chart = new Chart();
+        chart.setName(name);
+        chart.setGoal(goal);
+        chart.setChartType(chartType);
+        chart.setStatus(ChartStatusEnum.STATUS_WAIT.getMessage());
+        chart.setUserId(loginUser.getId());
+        chart.setChartData("在chart_{id}表");
+        //mybatis-plus新增成功后，会将主键赋值到传入的实体中
+        boolean saveResult = chartService.save(chart);
+        ThrowUtils.throwIf(!saveResult, ErrorCode.SYSTEM_ERROR, "图表保存失败");
+
+        //获取原始数据
+        String result = ExcelUtils.excelToCsv(multipartFile);
+
+        //分表保存
+        try {
+            createTableUtil.createTable(result, String.valueOf(chart.getId()));
+            createTableUtil.insertData(result, String.valueOf(chart.getId()));
+        } catch (IOException e) {
+            log.info("保存用户图表数据错误，图表ID：" + chart.getId());
+            throw new RuntimeException(e);
         }
+
+
+        biProducer.sendMessage(String.valueOf(chart.getId()));
+
+        BiResponse biResponse = new BiResponse();
+        biResponse.setChartId(chart.getId());
+
+        return ResultUtils.success(biResponse);
     }
 
 

@@ -32,18 +32,6 @@ export async function deleteChartUsingPOST(
   });
 }
 
-/** doWhat POST /api/chart/doWhat */
-export async function doWhatUsingPOST(body: string, options?: { [key: string]: any }) {
-  return request<API.BaseResponseString_>('/api/chart/doWhat', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    data: body,
-    ...(options || {}),
-  });
-}
-
 /** editChart POST /api/chart/edit */
 export async function editChartUsingPOST(
   body: API.ChartEditRequest,
@@ -90,6 +78,47 @@ export async function genChartByAiUsingPOST(
   });
 
   return request<API.BaseResponseBiResponse_>('/api/chart/gen/Async', {
+    method: 'POST',
+    params: {
+      ...params,
+    },
+    data: formData,
+    requestType: 'form',
+    ...(options || {}),
+  });
+}
+
+/** genChartByAiMq POST /api/chart/gen/Async/mq */
+export async function genChartByAiMqUsingPOST(
+  // 叠加生成的Param类型 (非body参数swagger默认没有生成对象)
+  params: API.genChartByAiMqUsingPOSTParams,
+  body: {},
+  file?: File,
+  options?: { [key: string]: any },
+) {
+  const formData = new FormData();
+
+  if (file) {
+    formData.append('file', file);
+  }
+
+  Object.keys(body).forEach((ele) => {
+    const item = (body as any)[ele];
+
+    if (item !== undefined && item !== null) {
+      if (typeof item === 'object' && !(item instanceof File)) {
+        if (item instanceof Array) {
+          item.forEach((f) => formData.append(ele, f || ''));
+        } else {
+          formData.append(ele, JSON.stringify(item));
+        }
+      } else {
+        formData.append(ele, item);
+      }
+    }
+  });
+
+  return request<API.BaseResponseBiResponse_>('/api/chart/gen/Async/mq', {
     method: 'POST',
     params: {
       ...params,

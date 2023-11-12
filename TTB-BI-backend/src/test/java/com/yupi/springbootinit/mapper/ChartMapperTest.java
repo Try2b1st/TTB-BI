@@ -66,10 +66,13 @@ class ChartMapperTest {
 
     @Test
     void queryChartData() {
-        String chartId = "1659210482555121666";
+        String chartId = "1720756093795196930";
         String querySql = String.format("select * from chart_%s", chartId);
         List<Map<String, Object>> resultData = chartMapper.queryChartData(querySql);
-        System.out.println(resultData);
+        for(Map<String,Object> map : resultData){
+            System.out.println(map);
+        }
+
     }
     @Resource
     private ChartMapper chartMapper;
