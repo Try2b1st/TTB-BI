@@ -7,6 +7,7 @@ import com.yupi.springbootinit.exception.BusinessException;
 import com.yupi.springbootinit.model.entity.Chart;
 import com.yupi.springbootinit.model.enums.ChartStatusEnum;
 import com.yupi.springbootinit.service.ChartService;
+import com.yupi.springbootinit.utils.ExcelUtils;
 import com.yupi.yucongming.dev.client.YuCongMingClient;
 import com.yupi.yucongming.dev.model.DevChatRequest;
 import com.yupi.yucongming.dev.model.DevChatResponse;
@@ -19,6 +20,7 @@ import org.springframework.stereotype.Component;
 
 import javax.annotation.Resource;
 import java.io.IOException;
+import java.util.Objects;
 
 @Component
 @Slf4j
@@ -28,6 +30,9 @@ public class BiConsumer {
     private YuCongMingClient client;
     @Resource
     private ChartService chartService;
+
+    @Resource
+    private ExcelUtils excelUtils;
 
 
     @RabbitListener(queues = {BiConstant.BI_QUEUE}, ackMode = "MANUAL")
@@ -49,6 +54,24 @@ public class BiConsumer {
             throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "图表为空");
         }
 
+        //从存储原始数据的表中获取原始数据
+        String querySql = String.format("select * from chart_%s", chartId);
+        String csvData = chartService.getCsvData(querySql);
+
+        String result = excelUtils.auditingCSV(csvData);
+        log.info("图片审查成功");
+        if (Objects.equals(result, "0")) {
+            log.info("文件内容-正常");
+        } else if (Objects.equals(result, "1")) {
+            log.info("文件内容-违规敏感");
+            channel.basicNack(deliveryTag, false, false);
+            chartService.handleChartUpdateError(chartId, "文件内容-违规敏感");
+        } else {
+            log.info("文件内容-疑似敏感，我们将进行人工复查");
+            channel.basicNack(deliveryTag, false, false);
+            chartService.handleChartUpdateError(chartId, "文件内容-疑似敏感，我们将进行人工复查");
+        }
+
         //开始调用AI回复，更改数据状态
         Chart updateChart = new Chart();
         updateChart.setId(chartId);
@@ -58,10 +81,6 @@ public class BiConsumer {
             channel.basicNack(deliveryTag, false, false);
             chartService.handleChartUpdateError(chartId, "更新图表 运行/生成 状态 失败");
         }
-
-        //从存储原始数据的表中获取原始数据
-        String querySql = String.format("select * from chart_%s", chartId);
-        String csvData = chartService.getCsvData(querySql);
 
         //发起请求获取响应
         DevChatRequest devChatRequest = buildUserInput(chart, csvData);

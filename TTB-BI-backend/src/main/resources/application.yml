@@ -35,6 +35,12 @@ spring:
     port: 6379
     timeout: 5000
 
+  rabbitmq:
+    host: localhost
+    port: 5672
+    password: guest
+    username: guest
+
   # Elasticsearch 配置
 #  elasticsearch:
 #    uris: http://localhost:9200
@@ -88,13 +94,3 @@ wx:
     appSecret: xxx
 ## 对象存储
 ## todo 需替换配置
-cos:
-  client:
-    accessKey: xxx
-    secretKey: xxx
-    region: xxx
-    bucket: xxx
-
-# 鱼聪明AI接口配置
-yuapi:
-  client:

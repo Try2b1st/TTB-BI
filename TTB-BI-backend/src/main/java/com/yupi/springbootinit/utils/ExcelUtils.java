@@ -3,12 +3,19 @@ package com.yupi.springbootinit.utils;
 import cn.hutool.core.collection.CollUtil;
 import com.alibaba.excel.EasyExcel;
 import com.alibaba.excel.support.ExcelTypeEnum;
+import com.qcloud.cos.COSClient;
+import com.qcloud.cos.model.ciModel.auditing.TextAuditingRequest;
+import com.qcloud.cos.model.ciModel.auditing.TextAuditingResponse;
 import com.yupi.springbootinit.common.ErrorCode;
+import com.yupi.springbootinit.config.CosClientConfig;
 import com.yupi.springbootinit.exception.BusinessException;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
+
+import javax.annotation.Resource;
 import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -21,8 +28,13 @@ import java.util.stream.Collectors;
  * @author 下水道的小老鼠
  */
 @Slf4j
+@Component
 public class ExcelUtils {
-    public static String excelToCsv(MultipartFile multipartFile) {
+
+    @Resource
+    private CosClientConfig cosClientConfig;
+
+    public String excelToCsv(MultipartFile multipartFile) {
         //读取数据
         List<Map<Integer, String>> list = null;
         try {
@@ -55,5 +67,17 @@ public class ExcelUtils {
         }
         System.out.println(stringBuilder);
         return stringBuilder.toString();
+    }
+
+
+    public String auditingCSV(String csv) {
+        //1.创建任务请求对象
+        TextAuditingRequest request = new TextAuditingRequest();
+        //2.添加请求参数 参数详情请见 API 接口文档
+        request.setBucketName(cosClientConfig.getBucket());
+        //2.1.1设置请求内容,文本内容的Base64编码
+        request.getInput().setContent(csv);
+        TextAuditingResponse response = cosClientConfig.cosClient().createAuditingTextJobs(request);
+        return response.getJobsDetail().getResult();
     }
 }

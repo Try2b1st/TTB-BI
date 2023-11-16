@@ -5,7 +5,6 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.google.gson.Gson;
 import com.yupi.springbootinit.annotation.AuthCheck;
-import com.yupi.springbootinit.bizmq.BiConstant;
 import com.yupi.springbootinit.bizmq.BiProducer;
 import com.yupi.springbootinit.common.BaseResponse;
 import com.yupi.springbootinit.common.DeleteRequest;
@@ -75,6 +74,9 @@ public class ChartController {
 
     @Resource
     private ThreadPoolExecutor threadPoolExecutor;
+
+    @Resource
+    private ExcelUtils excelUtils;
 
     private final static Gson GSON = new Gson();
 
@@ -292,7 +294,7 @@ public class ChartController {
             stringBuilder.append("图表类型:").append(chartType).append("\n");
         }
 
-        String result = ExcelUtils.excelToCsv(multipartFile);
+        String result = excelUtils.excelToCsv(multipartFile);
         stringBuilder.append("原始数据:\n").append(result);
         devChatRequest.setMessage(stringBuilder.toString());
 
@@ -407,7 +409,7 @@ public class ChartController {
         ThrowUtils.throwIf(!saveResult, ErrorCode.SYSTEM_ERROR, "图表保存失败");
 
         //获取原始数据
-        String result = ExcelUtils.excelToCsv(multipartFile);
+        String result = excelUtils.excelToCsv(multipartFile);
 
         //分表保存
         try {
